@@ -115,7 +115,11 @@ class Store:
             url=url, json={'query': query, 'variables': variables}, headers=headers
         )
         jsondata = resp.json()
-        if 'errors' in jsondata and 'Invalid API key or access token' in jsondata['errors']:
+        if type(jsondata) is not dict:
+            raise ValueError('JSON data is not a dictionary')
+
+        if 'Invalid API key or access token' in jsondata.get('errors', {}):  # type: ignore
+            # Typing seems to not take into account the type check above
             self.access_token_invalid = True
             logger.warning(
                 f'Store {self.name}: The Shopify API token is invalid. '

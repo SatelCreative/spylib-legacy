@@ -1,1 +1,1 @@
-from .store import Store, UniqueStore
+from .store import Store, UniqueStore  # noqa: F401

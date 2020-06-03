@@ -8,6 +8,7 @@ from .config import conf
 
 
 class MongoDB(AsyncIOMotorDatabase):
+    """ Singleton class initializing the MongoDB motor client once """
     __instance = None
 
     def __new__(cls):
