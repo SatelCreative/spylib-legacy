@@ -4,6 +4,12 @@ from time import monotonic
 from async_timeout import timeout
 from asyncio import sleep
 from loguru import logger
+from tenacity import retry
+from tenacity.wait import wait_random
+from tenacity.stop import stop_after_attempt
+from tenacity.retry import retry_if_exception
+
+from .exceptions import ShopifyError, ShopifyCallInvalidError, not_our_fault
 
 
 API_VERSION: str = '2020-04'
@@ -64,7 +70,35 @@ class Store:
             self.tokens = min(self.tokens + new_tokens, self.max_tokens)  # type: ignore
             self.updated_at = now
 
-    async def shoprequest(self, goodstatus, debug, endpoint, **kwargs):
+    async def __handle_error(self, debug: str, endpoint: str, response):
+        """ Handle any error that occured when calling Shopify
+
+        If the response has a valid json then return it too.
+        """
+        msg = (
+            f'ERROR in store {self.name}: {debug}\n'
+            f'API response code: {response.status}\n'
+            f'API endpoint: {endpoint}\n'
+        )
+        try:
+            jresp = await response.json()
+        except Exception:
+            pass
+        else:
+            msg += f'API response json: {jresp}\n'
+
+        if 400 <= response.status < 500:
+            # This appears to be our fault
+            raise ShopifyCallInvalidError(msg)
+
+        raise ShopifyError(msg)
+
+    @retry(
+        wait=wait_random(min=1, max=2),
+        stop=stop_after_attempt(5),
+        retry=retry_if_exception(not_our_fault),
+    )
+    async def shoprequest(self, goodstatus, debug, endpoint, **kwargs) -> Dict[str, Any]:
         while True:
             await self.__wait_for_token()
             kwargs['url'] = f'{self.url}{endpoint}'
@@ -74,26 +108,13 @@ class Store:
                 if response.status == 429:
                     # We hit the limit, we are out of tokens
                     self.tokens = 0
-                else:
-                    try:
-                        jresp = await response.json()
-                    except Exception:
-                        msg = (
-                            f'ERROR in store {self.name}: {debug}\n'
-                            f'API response code: {response.status}\n'
-                            f'API endpoint: {endpoint}\n'
-                        )
-                        logger.warning(msg)
-                        raise ConnectionError(msg)
-                    msg = (
-                        f'ERROR in store {self.name}: {debug}\n'
-                        f'API response code: {response.status}\n'
-                        f'API response json: {jresp}\n'
+                elif 400 <= response.status or response.status != goodstatus:
+                    # All errors are handled here
+                    await self.__handle_error(
+                        debug=debug, endpoint=endpoint, response=response
                     )
-                    if response.status != goodstatus:
-                        logger.warning(msg)
-                        raise ConnectionError(msg)
-
+                else:
+                    jresp = await response.json()
                     # Recalculate the rate to be sure we have the right one.
                     calllimit = response.headers['X-Shopify-Shop-Api-Call-Limit']
                     self.max_tokens = int(calllimit.split('/')[1])
@@ -101,9 +122,9 @@ class Store:
                     # regardless of the bucket size.
                     self.rate = int(self.max_tokens / 20)
 
-                    return jresp
+                return jresp
 
-    async def execute_gql(self, query: str, variables: Dict[str, Any] = {}):
+    async def execute_gql(self, query: str, variables: Dict[str, Any] = {}) -> Dict[str, Any]:
         """ Simple graphql query executor because python has no decent graphql client """
 
         url = f'{self.url}/graphql.json'
