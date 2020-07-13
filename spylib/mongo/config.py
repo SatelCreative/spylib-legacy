@@ -5,7 +5,7 @@ from pydantic import BaseSettings
 class Configuration(BaseSettings):
     host: str = 'mongo'
     port: int = 27017
-    dbname: str = 'sbpim'
+    dbname: str = 'db'
     username: Optional[str] = None
     password: Optional[str] = None
     ssl: bool = False
