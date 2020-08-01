@@ -114,7 +114,7 @@ class Store:
                         debug=debug, endpoint=endpoint, response=response
                     )
                 else:
-                    jresp = await response.json()
+                    jresp = response.json()
                     # Recalculate the rate to be sure we have the right one.
                     calllimit = response.headers['X-Shopify-Shop-Api-Call-Limit']
                     self.max_tokens = int(calllimit.split('/')[1])
