@@ -105,10 +105,10 @@ class Store:
             kwargs['headers'] = {'X-Shopify-Access-Token': self.access_token}
             with timeout(FETCH_TIMEOUT):
                 response = await self.client.request(**kwargs)
-                if response.status == 429:
+                if response.status_code == 429:
                     # We hit the limit, we are out of tokens
                     self.tokens = 0
-                elif 400 <= response.status or response.status != goodstatus:
+                elif 400 <= response.status_code or response.status_code != goodstatus:
                     # All errors are handled here
                     await self.__handle_error(
                         debug=debug, endpoint=endpoint, response=response
