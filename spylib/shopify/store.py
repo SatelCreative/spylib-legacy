@@ -1,7 +1,6 @@
-from httpx import AsyncClient
 from typing import Any, Dict
+from httpx import AsyncClient
 from time import monotonic
-from async_timeout import timeout
 from asyncio import sleep
 from loguru import logger
 from tenacity import retry
@@ -103,26 +102,28 @@ class Store:
             await self.__wait_for_token()
             kwargs['url'] = f'{self.url}{endpoint}'
             kwargs['headers'] = {'X-Shopify-Access-Token': self.access_token}
-            with timeout(FETCH_TIMEOUT):
-                response = await self.client.request(**kwargs)
-                if response.status_code == 429:
-                    # We hit the limit, we are out of tokens
-                    self.tokens = 0
-                elif 400 <= response.status_code or response.status_code != goodstatus:
-                    # All errors are handled here
-                    await self.__handle_error(
-                        debug=debug, endpoint=endpoint, response=response
-                    )
-                else:
-                    jresp = response.json()
-                    # Recalculate the rate to be sure we have the right one.
-                    calllimit = response.headers['X-Shopify-Shop-Api-Call-Limit']
-                    self.max_tokens = int(calllimit.split('/')[1])
-                    # In Shopify the bucket is emptied after 20 seconds
-                    # regardless of the bucket size.
-                    self.rate = int(self.max_tokens / 20)
+            kwargs.setdefault('timeout', FETCH_TIMEOUT)
 
-                return jresp
+            response = await self.client.request(**kwargs)
+            if response.status_code == 429:
+                # We hit the limit, we are out of tokens
+                self.tokens = 0
+                continue
+            elif 400 <= response.status_code or response.status_code != goodstatus:
+                # All errors are handled here
+                await self.__handle_error(
+                    debug=debug, endpoint=endpoint, response=response
+                )
+            else:
+                jresp = response.json()
+                # Recalculate the rate to be sure we have the right one.
+                calllimit = response.headers['X-Shopify-Shop-Api-Call-Limit']
+                self.max_tokens = int(calllimit.split('/')[1])
+                # In Shopify the bucket is emptied after 20 seconds
+                # regardless of the bucket size.
+                self.rate = int(self.max_tokens / 20)
+
+            return jresp
 
     async def execute_gql(self, query: str, variables: Dict[str, Any] = {}) -> Dict[str, Any]:
         """ Simple graphql query executor because python has no decent graphql client """
