@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from httpx import AsyncClient
 from time import monotonic
 from asyncio import sleep
@@ -32,18 +32,25 @@ class Store:
         self.reset_access_token(access_token=access_token)
 
     @classmethod
-    def load(cls, store_id, name, access_token):
+    def load(cls, store_id: str, name: str, access_token: Optional[str]):
         """ Load the store from memory to reuse the tokens
 
         WARNING: the name will not be changed here after the first initialization
         """
         if store_id not in Store._instances:
+            if access_token is None:
+                message = 'Store {name} ({store_id}) initialized without an access_token'
+                logger.error(message)
+                raise ValueError(message)
             Store._instances[store_id] = Store(
                 store_id=store_id, name=name, access_token=access_token
             )
         else:
             # Verify if the access token has changed
-            if Store._instances[store_id].access_token != access_token:
+            if (
+                access_token is not None
+                and Store._instances[store_id].access_token != access_token
+            ):
                 Store._instances[store_id].reset_access_token(access_token)
         return Store._instances[store_id]
 
@@ -80,7 +87,7 @@ class Store:
             f'API endpoint: {endpoint}\n'
         )
         try:
-            jresp = await response.json()
+            jresp = response.json()
         except Exception:
             pass
         else:
@@ -111,9 +118,7 @@ class Store:
                 continue
             elif 400 <= response.status_code or response.status_code != goodstatus:
                 # All errors are handled here
-                await self.__handle_error(
-                    debug=debug, endpoint=endpoint, response=response
-                )
+                await self.__handle_error(debug=debug, endpoint=endpoint, response=response)
             else:
                 jresp = response.json()
                 # Recalculate the rate to be sure we have the right one.
