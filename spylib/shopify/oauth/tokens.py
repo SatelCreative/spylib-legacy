@@ -1,6 +1,6 @@
 from typing import Optional
 from typing import List
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 
 from spylib.utils import HTTPClient
 from spylib.auth import JWTBaseModel
@@ -39,6 +39,10 @@ class OfflineToken(BaseModel):
     async def get(cls, domain: str, code: str):
         jsontoken = await _get_token(domain=domain, code=code)
         return cls(**jsontoken)
+
+    @validator('scope', pre=True, always=True)
+    def set_id(cls, fld):
+        return fld.split(',')
 
 
 class AssociatedUser(BaseModel):

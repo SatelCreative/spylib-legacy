@@ -1,26 +1,46 @@
-from urllib.parse import urlparse, parse_qs, ParseResult
+import pytest
+from typing import List
+from unittest.mock import AsyncMock
+from urllib.parse import urlparse, parse_qs, ParseResult, urlencode
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from pydantic.dataclasses import dataclass
+from requests import Response
 from box import Box
 
-from spylib.shopify.oauth import init_oauth_router
+from spylib.utils import now_epoch
+from spylib.shopify.oauth import init_oauth_router, conf
+from spylib.auth import hmac
 
 
-def test_oauth():
-    test_store = 'test.myshopify.com'
-    test_data = Box(
-        dict(
-            app_scopes=['write_products', 'read_customers'],
-            user_scopes=['write_orders', 'read_products'],
-            public_domain='test.testing.com',
-            private_key='TESTPRIVATEKEY',
-            api_key='APIKEY',
-        )
+TEST_STORE = 'test.myshopify.com'
+TEST_DATA = Box(
+    dict(
+        app_scopes=['write_products', 'read_customers'],
+        user_scopes=['write_orders', 'read_products'],
+        public_domain='test.testing.com',
+        private_key='TESTPRIVATEKEY',
+        api_key=conf.api_key,
     )
+)
+
+
+@dataclass
+class MockHTTPResponse:
+    status_code: int
+    jsondata: dict
+    headers: dict = None  # type: ignore
+
+    def json(self):
+        return self.jsondata
+
+
+@pytest.mark.asyncio
+async def test_oauth(mocker):
 
     app = FastAPI()
 
-    oauth_router = init_oauth_router(**test_data)
+    oauth_router = init_oauth_router(**TEST_DATA)
 
     app.include_router(oauth_router)
     client = TestClient(app)
@@ -37,14 +57,43 @@ def test_oauth():
     }
 
     # Happy path
-    response = client.get('/shopify/auth', params=dict(shop=test_store), allow_redirects=False)
+    response = client.get('/shopify/auth', params=dict(shop=TEST_STORE), allow_redirects=False)
+    state = check_oauth_redirect(response=response, client=client, scope=TEST_DATA.app_scopes)
+
+    # --------- Test the callback endpoint for installation -----------
+    shopify_request_mock = mocker.patch('httpx.AsyncClient.request', new_callable=AsyncMock,)
+    shopify_request_mock.side_effect = [
+        MockHTTPResponse(
+            status_code=200,
+            jsondata=dict(access_token='OFFLINETOKEN', scope=','.join(TEST_DATA.app_scopes)),
+        )
+    ]
+
+    query_str = urlencode(dict(shop=TEST_STORE, state=state, timestamp=now_epoch(), code='CODE'))
+    hmac_arg = hmac.calculate_from_message(secret=conf.secret_key, message=query_str)
+    query_str += '&hmac=' + hmac_arg
+
+    response = client.get('/callback', params=query_str, allow_redirects=False)
+    state = check_oauth_redirect(
+        response=response,
+        client=client,
+        scope=TEST_DATA.user_scopes,
+        query_extra={'grant_options[]': ['per-user']},
+    )
+
+    # --------- Test the callback endpoint for login -----------
+
+
+def check_oauth_redirect(
+    response: Response, client, scope: List[str], query_extra: dict = {}
+) -> str:
     assert response.status_code == 307
 
     parsed_url = urlparse(client.get_redirect_target(response))
 
     expected_parsed_url = ParseResult(
         scheme='https',
-        netloc=test_store,
+        netloc=TEST_STORE,
         path='/admin/oauth/authorize',
         query=parsed_url.query,  # We check that separately
         params='',
@@ -53,16 +102,15 @@ def test_oauth():
     assert parsed_url == expected_parsed_url
 
     parsed_query = parse_qs(parsed_url.query)
-    state = parsed_query.pop('state')
-    assert parsed_query == dict(
-        client_id=[test_data.api_key],
-        redirect_uri=[f'https://{test_data.public_domain}/callback'],
-        scope=[','.join(test_data.app_scopes)],
-    )
+    state = parsed_query.pop('state')[0]
 
-    # --------- Test the callback endpoint -----------
-
-    response = client.get(
-        '/callback', params=dict(shop=test_store, state=state), allow_redirects=False
+    expected_query = dict(
+        client_id=[TEST_DATA.api_key],
+        redirect_uri=[f'https://{TEST_DATA.public_domain}/callback'],
+        scope=[','.join(scope)],
     )
-    assert response.status_code == 307
+    expected_query.update(query_extra)
+
+    assert parsed_query == expected_query
+
+    return state

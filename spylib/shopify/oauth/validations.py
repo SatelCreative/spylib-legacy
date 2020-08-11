@@ -1,7 +1,7 @@
 from urllib.parse import parse_qsl
 from typing import Any
 
-from spylib.auth import validate_hmac
+from spylib.auth.hmac import validate as validate_hmac
 from spylib.utils import now_epoch
 from spylib.shopify.utils import domain_to_storename
 
@@ -26,7 +26,7 @@ def validate_callback(shop: str, timestamp: int, query_string: Any) -> None:
     hmac_arg = [arg[1] for arg in args if arg[0] == 'hmac'][0]
     args_nohmac = '&'.join([f'{arg[0]}={arg[1]}' for arg in args if arg[0] != 'hmac'])
     # Check HMAC
-    message = args_nohmac.encode('utf-8')
+    message = args_nohmac
     validate_hmac(secret=conf.secret_key, sent_hmac=hmac_arg, message=message)
 
     return
