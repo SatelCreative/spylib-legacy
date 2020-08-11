@@ -4,12 +4,11 @@ import base64
 
 from urllib.parse import parse_qsl
 from utils import now_epoch
-from functools import wraps
 from typing import Any
 
 from ..config import conf
 from ..utils import domain_to_storename
-from .tokens import OAuthJWT, WebappJWT
+from .tokens import OAuthJWT
 
 
 def validate_hmac(sent_hmac: str, message: bytes, is_webhook: bool = False):
@@ -61,35 +60,3 @@ def validate_oauthjwt(token: str, shop: str) -> OAuthJWT:
         raise ValueError('Token storename and query shop don\'t match')
 
     return oauthjwt
-
-
-def get_jwt_from_request(request) -> WebappJWT:
-    args = request.headers
-    header_payload = args.get(WebappJWT.httpheader_name)
-    if header_payload is None:
-        raise ConnectionError('Missing jwt argument. Not authorized')
-    unchecked_jwtoken = WebappJWT.decode_hp_s(header_payload=header_payload)
-    cookie_name = '_' + unchecked_jwtoken.store_id
-    if cookie_name not in request.cookies:
-        raise ConnectionError('Missing cookie. Not authorized')
-
-    # This will raise an exception if the token is not valid
-    jwtoken = WebappJWT.decode_hp_s(
-        header_payload=header_payload, signature=request.cookies[cookie_name]
-    )
-    return jwtoken
-
-
-def validate_resolvers_jwt():
-    def decorator(f):
-        @wraps(f)
-        async def decorated_resolver(obj, info, *args):
-            # run some method that checks the request
-            # for the client's authorization status
-            if 'jwtoken' not in info.context:
-                info.context['jwtoken'] = get_jwt_from_request(info.context['request'])
-            return await f(obj, info, *args)
-
-        return decorated_resolver
-
-    return decorator

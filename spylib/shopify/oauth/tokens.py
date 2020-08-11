@@ -1,10 +1,9 @@
 from typing import Optional
-from datetime import datetime, timedelta
 from typing import List
 from pydantic import BaseModel
 
-from utils import HTTPClient
-from auth import JWToken, JWTBaseModel
+from spylib.utils import HTTPClient
+from spylib.auth import JWTBaseModel
 
 from ..config import conf
 
@@ -13,16 +12,6 @@ class OAuthJWT(JWTBaseModel):
     is_login: bool
     storename: str
     nonce: Optional[str] = None
-
-    def encode(self) -> JWToken:
-        data = {
-            'is_login': self.is_login,
-            'storename': self.storename,
-            'nonce': self.nonce,
-            'exp': (datetime.now() + timedelta(seconds=900)),
-        }
-
-        return JWToken.load(data=data)
 
 
 async def _get_token(domain: str, code: str) -> dict:

@@ -1,7 +1,8 @@
 import jwt
 from typing import Optional, Tuple
-from abc import ABC, abstractmethod
-from pydantic import BaseModel
+from abc import ABC
+from datetime import datetime, timedelta
+from pydantic import BaseModel, validator
 
 from utils import conf as global_conf
 
@@ -13,6 +14,12 @@ class JWTBaseModel(BaseModel, ABC):
     The default expiration (exp) is set to 900 seconds. Overwrite the ClassVar exp to change the
     expiration time.
     """
+    exp: int = None  # type: ignore
+
+    @validator('exp', pre=True, always=True)
+    def set_id(cls, exp):
+        return exp or (datetime.now() + timedelta(seconds=900))
+
     @classmethod
     def decode_token(cls, token: str, verify: bool = True):
         """ Decode the token and load the data content into an instance of this class
@@ -72,7 +79,6 @@ class JWTBaseModel(BaseModel, ABC):
         return f'{header}.{payload}', signature
 
     @property
-    @abstractmethod
     def cookie_key(self) -> str:
         """ Define the key of the cookie used to store the JWT """
-        pass
+        raise NotImplementedError

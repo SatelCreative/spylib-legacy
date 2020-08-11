@@ -1,1 +1,1 @@
-from .jwtoken import JWToken, JWTBaseModel  # noqa: F401
+from .jwtoken import JWTBaseModel  # noqa: F401

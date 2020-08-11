@@ -1,7 +1,7 @@
+import pytest
+from unittest.mock import AsyncMock
 from pydantic.dataclasses import dataclass
 from pydantic import validator
-from unittest.mock import AsyncMock
-import pytest
 
 from spylib.shopify import Store
 
