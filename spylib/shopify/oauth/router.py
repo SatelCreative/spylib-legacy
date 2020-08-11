@@ -28,6 +28,7 @@ def init_oauth_router(
     user_scopes: List[str],
     public_domain: str,
     api_key: str,
+    private_key: str,
     install_init_url='/shopify/auth',
     post_install: Callable[
         [str, OfflineToken], Union[Awaitable[JWTBaseModel], JWTBaseModel]
@@ -39,6 +40,7 @@ def init_oauth_router(
     @router.get(install_init_url, include_in_schema=False)
     async def shopify_auth(shop: str):
         """ Endpoint initiating the OAuth process on a Shopify store """
+        print('>>>>>>>', store_domain(shop=shop), flush=True)
         return RedirectResponse(
             oauth_init_url(
                 domain=store_domain(shop=shop),
@@ -46,6 +48,7 @@ def init_oauth_router(
                 requested_scopes=app_scopes,
                 callback_domain=public_domain,
                 api_key=api_key,
+                jwt_key=private_key,
             )
         )
 
@@ -58,7 +61,9 @@ def init_oauth_router(
                 timestamp=args.timestamp,
                 query_string=request.scope['query_string'],
             )
-            oauthjwt: OAuthJWT = validate_oauthjwt(token=args.state, shop=args.shop)
+            oauthjwt: OAuthJWT = validate_oauthjwt(
+                token=args.state, shop=args.shop, jwt_key=private_key
+            )
         except Exception as e:
             raise HTTPException(status_code=400, detail=f'Validation failed: {e}')
 
@@ -83,6 +88,7 @@ def init_oauth_router(
                     requested_scopes=user_scopes,
                     callback_domain=public_domain,
                     api_key=api_key,
+                    jwt_key=private_key,
                 )
             )
 
@@ -98,6 +104,8 @@ def init_oauth_router(
             jwtoken = pl_return
 
         # Redirect to the app in Shopify admin
-        return app_redirect(store_domain=args.shop, jwtoken=jwtoken, app_domain=public_domain)
+        return app_redirect(
+            store_domain=args.shop, jwtoken=jwtoken, jwt_key=private_key, app_domain=public_domain
+        )
 
     return router

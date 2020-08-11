@@ -12,7 +12,6 @@ from .exceptions import ShopifyError, ShopifyCallInvalidError, not_our_fault
 
 
 API_VERSION: str = '2020-04'
-FETCH_TIMEOUT = 10
 # Default assumes Shopify Plus rate
 RATE = 4
 MAX_TOKENS = 80
@@ -109,7 +108,6 @@ class Store:
             await self.__wait_for_token()
             kwargs['url'] = f'{self.url}{endpoint}'
             kwargs['headers'] = {'X-Shopify-Access-Token': self.access_token}
-            kwargs.setdefault('timeout', FETCH_TIMEOUT)
 
             response = await self.client.request(**kwargs)
             if response.status_code == 429:

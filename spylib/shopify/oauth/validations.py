@@ -1,32 +1,12 @@
-import hashlib
-import hmac
-import base64
-
 from urllib.parse import parse_qsl
-from utils import now_epoch
 from typing import Any
 
-from ..config import conf
-from ..utils import domain_to_storename
+from spylib.auth import validate_hmac
+from spylib.utils import now_epoch
+from spylib.shopify.utils import domain_to_storename
+
+from .config import conf
 from .tokens import OAuthJWT
-
-
-def validate_hmac(sent_hmac: str, message: bytes, is_webhook: bool = False):
-
-    if sent_hmac is None:
-        raise ValueError('Security header missing')
-
-    secret = conf.secret_key
-    hmac_hash = hmac.new(secret.encode('utf-8'), message, hashlib.sha256)
-    if is_webhook:
-        # TODO fix bytes / str union issue
-        hmac_calculated: str = base64.b64encode(hmac_hash.digest())  # type: ignore
-        sent_hmac: str = sent_hmac.encode('utf-8')  # type: ignore
-    else:
-        hmac_calculated = hmac_hash.hexdigest()
-
-    if not hmac.compare_digest(sent_hmac, hmac_calculated):
-        raise ValueError('HMAC verification failed')
 
 
 def validate_callback(shop: str, timestamp: int, query_string: Any) -> None:
@@ -47,13 +27,13 @@ def validate_callback(shop: str, timestamp: int, query_string: Any) -> None:
     args_nohmac = '&'.join([f'{arg[0]}={arg[1]}' for arg in args if arg[0] != 'hmac'])
     # Check HMAC
     message = args_nohmac.encode('utf-8')
-    validate_hmac(sent_hmac=hmac_arg, message=message)
+    validate_hmac(secret=conf.secret_key, sent_hmac=hmac_arg, message=message)
 
     return
 
 
-def validate_oauthjwt(token: str, shop: str) -> OAuthJWT:
-    oauthjwt = OAuthJWT.decode_token(token=token)
+def validate_oauthjwt(token: str, shop: str, jwt_key: str) -> OAuthJWT:
+    oauthjwt = OAuthJWT.decode_token(token=token, key=jwt_key)
 
     storename = domain_to_storename(shop)
     if oauthjwt.storename != storename:

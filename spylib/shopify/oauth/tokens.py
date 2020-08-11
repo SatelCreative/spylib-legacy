@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from spylib.utils import HTTPClient
 from spylib.auth import JWTBaseModel
 
-from ..config import conf
+from .config import conf
 
 
 class OAuthJWT(JWTBaseModel):
