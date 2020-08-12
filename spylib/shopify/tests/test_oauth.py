@@ -9,7 +9,7 @@ from requests import Response
 from box import Box
 
 from spylib.utils import now_epoch
-from spylib.shopify.oauth import init_oauth_router, conf
+from spylib.shopify.oauth import init_oauth_router, conf, OfflineToken, OnlineToken
 from spylib.auth import hmac, JWTBaseModel
 
 
@@ -24,6 +24,24 @@ TEST_DATA = Box(
         post_install=AsyncMock(return_value=JWTBaseModel()),
         post_login=AsyncMock(return_value=None),
     )
+)
+
+OFFLINETOKEN_DATA = dict(access_token='OFFLINETOKEN', scope=','.join(TEST_DATA.app_scopes))
+ONLINETOKEN_DATA = dict(
+    access_token='ONLINETOKEN',
+    scope=','.join(TEST_DATA.app_scopes),
+    expires_in=86399,
+    associated_user_scope=','.join(TEST_DATA.user_scopes),
+    associated_user={
+        "id": 902541635,
+        "first_name": "John",
+        "last_name": "Smith",
+        "email": "john@example.com",
+        "email_verified": True,
+        "account_owner": True,
+        "locale": "en",
+        "collaborator": False,
+    },
 )
 
 
@@ -68,14 +86,8 @@ async def test_oauth(mocker):
     # Callback calls to get tokens
     shopify_request_mock = mocker.patch('httpx.AsyncClient.request', new_callable=AsyncMock)
     shopify_request_mock.side_effect = [
-        MockHTTPResponse(
-            status_code=200,
-            jsondata=dict(access_token='OFFLINETOKEN', scope=','.join(TEST_DATA.app_scopes)),
-        ),
-        MockHTTPResponse(
-            status_code=200,
-            jsondata=dict(access_token='ONLINETOKEN', scope=','.join(TEST_DATA.user_scopes)),
-        ),
+        MockHTTPResponse(status_code=200, jsondata=OFFLINETOKEN_DATA),
+        MockHTTPResponse(status_code=200, jsondata=ONLINETOKEN_DATA),
     ]
     # --------- Test the callback endpoint for installation -----------
     query_str = urlencode(
@@ -102,6 +114,7 @@ async def test_oauth(mocker):
     )
 
     TEST_DATA.post_install.assert_called_once()
+    TEST_DATA.post_install.assert_called_with('test', OfflineToken(**OFFLINETOKEN_DATA))
 
     # --------- Test the callback endpoint for login -----------
     query_str = urlencode(
@@ -125,6 +138,7 @@ async def test_oauth(mocker):
     )
 
     TEST_DATA.post_login.assert_called_once()
+    TEST_DATA.post_login.assert_called_with('test', OnlineToken(**ONLINETOKEN_DATA))
 
 
 def check_oauth_redirect_url(response: Response, client, path: str, scope: List[str]) -> str:

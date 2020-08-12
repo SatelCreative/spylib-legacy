@@ -60,3 +60,7 @@ class OnlineToken(OfflineToken):
     expires_in: int
     associated_user_scope: List[str]
     associated_user: AssociatedUser
+
+    @validator('associated_user_scope', pre=True, always=True)
+    def set_id(cls, fld):
+        return fld.split(',')
