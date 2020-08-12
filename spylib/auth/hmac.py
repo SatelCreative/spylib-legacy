@@ -4,7 +4,6 @@ from base64 import b64encode
 
 
 def calculate_from_message(secret: str, message: str, is_base64: bool = False) -> str:
-    print('>>>>', secret, is_base64, message)
     hmac_hash = new(secret.encode('utf-8'), message.encode('utf-8'), sha256)
     if is_base64:
         # TODO fix bytes / str union issue

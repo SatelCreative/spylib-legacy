@@ -40,7 +40,6 @@ def init_oauth_router(
     @router.get(install_init_url, include_in_schema=False)
     async def shopify_auth(shop: str):
         """ Endpoint initiating the OAuth process on a Shopify store """
-        print('>>>>>>>', store_domain(shop=shop), flush=True)
         return RedirectResponse(
             oauth_init_url(
                 domain=store_domain(shop=shop),

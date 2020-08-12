@@ -10,7 +10,7 @@ from box import Box
 
 from spylib.utils import now_epoch
 from spylib.shopify.oauth import init_oauth_router, conf
-from spylib.auth import hmac
+from spylib.auth import hmac, JWTBaseModel
 
 
 TEST_STORE = 'test.myshopify.com'
@@ -21,6 +21,8 @@ TEST_DATA = Box(
         public_domain='test.testing.com',
         private_key='TESTPRIVATEKEY',
         api_key=conf.api_key,
+        post_install=AsyncMock(return_value=JWTBaseModel()),
+        post_login=AsyncMock(return_value=None),
     )
 )
 
@@ -58,35 +60,74 @@ async def test_oauth(mocker):
 
     # Happy path
     response = client.get('/shopify/auth', params=dict(shop=TEST_STORE), allow_redirects=False)
-    state = check_oauth_redirect(response=response, client=client, scope=TEST_DATA.app_scopes)
+    query = check_oauth_redirect_url(
+        response=response, client=client, path='/admin/oauth/authorize', scope=TEST_DATA.app_scopes
+    )
+    state = check_oauth_redirect_query(query=query, scope=TEST_DATA.app_scopes)
 
-    # --------- Test the callback endpoint for installation -----------
-    shopify_request_mock = mocker.patch('httpx.AsyncClient.request', new_callable=AsyncMock,)
+    # Callback calls to get tokens
+    shopify_request_mock = mocker.patch('httpx.AsyncClient.request', new_callable=AsyncMock)
     shopify_request_mock.side_effect = [
         MockHTTPResponse(
             status_code=200,
             jsondata=dict(access_token='OFFLINETOKEN', scope=','.join(TEST_DATA.app_scopes)),
-        )
+        ),
+        MockHTTPResponse(
+            status_code=200,
+            jsondata=dict(access_token='ONLINETOKEN', scope=','.join(TEST_DATA.user_scopes)),
+        ),
     ]
-
-    query_str = urlencode(dict(shop=TEST_STORE, state=state, timestamp=now_epoch(), code='CODE'))
+    # --------- Test the callback endpoint for installation -----------
+    query_str = urlencode(
+        dict(shop=TEST_STORE, state=state, timestamp=now_epoch(), code='INSTALLCODE')
+    )
     hmac_arg = hmac.calculate_from_message(secret=conf.secret_key, message=query_str)
     query_str += '&hmac=' + hmac_arg
 
     response = client.get('/callback', params=query_str, allow_redirects=False)
-    state = check_oauth_redirect(
+    query = check_oauth_redirect_url(
         response=response,
         client=client,
+        path='/admin/oauth/authorize',
         scope=TEST_DATA.user_scopes,
-        query_extra={'grant_options[]': ['per-user']},
+    )
+    state = check_oauth_redirect_query(
+        query=query, scope=TEST_DATA.user_scopes, query_extra={'grant_options[]': ['per-user']},
     )
 
+    assert shopify_request_mock.called_with(
+        method='post',
+        url=f'https://{TEST_STORE}/admin/oauth/access_token',
+        json={'client_id': conf.api_key, 'client_secret': conf.secret_key, 'code': 'INSTALLCODE'},
+    )
+
+    TEST_DATA.post_install.assert_called_once()
+
     # --------- Test the callback endpoint for login -----------
+    query_str = urlencode(
+        dict(shop=TEST_STORE, state=state, timestamp=now_epoch(), code='LOGINCODE'), safe='=,&/[]:'
+    )
+    hmac_arg = hmac.calculate_from_message(secret=conf.secret_key, message=query_str)
+    query_str += '&hmac=' + hmac_arg
+
+    response = client.get('/callback', params=query_str, allow_redirects=False)
+    state = check_oauth_redirect_url(
+        response=response,
+        client=client,
+        path=f'/admin/apps/{conf.handle}',
+        scope=TEST_DATA.user_scopes,
+    )
+
+    assert shopify_request_mock.called_with(
+        method='post',
+        url=f'https://{TEST_STORE}/admin/oauth/access_token',
+        json={'client_id': conf.api_key, 'client_secret': conf.secret_key, 'code': 'LOGINCODE'},
+    )
+
+    TEST_DATA.post_login.assert_called_once()
 
 
-def check_oauth_redirect(
-    response: Response, client, scope: List[str], query_extra: dict = {}
-) -> str:
+def check_oauth_redirect_url(response: Response, client, path: str, scope: List[str]) -> str:
     assert response.status_code == 307
 
     parsed_url = urlparse(client.get_redirect_target(response))
@@ -94,15 +135,19 @@ def check_oauth_redirect(
     expected_parsed_url = ParseResult(
         scheme='https',
         netloc=TEST_STORE,
-        path='/admin/oauth/authorize',
+        path=path,
         query=parsed_url.query,  # We check that separately
         params='',
         fragment='',
     )
     assert parsed_url == expected_parsed_url
 
-    parsed_query = parse_qs(parsed_url.query)
-    state = parsed_query.pop('state')[0]
+    return parsed_url.query
+
+
+def check_oauth_redirect_query(query: str, scope: List[str], query_extra: dict = {}) -> str:
+    parsed_query = parse_qs(query)
+    state = parsed_query.pop('state', [''])[0]
 
     expected_query = dict(
         client_id=[TEST_DATA.api_key],

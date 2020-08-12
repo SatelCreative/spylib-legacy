@@ -10,8 +10,12 @@ from .config import conf
 
 
 def oauth_init_url(
-    domain: str, requested_scopes: List[str], callback_domain: str, api_key: str, is_login: bool,
-    jwt_key: str
+    domain: str,
+    requested_scopes: List[str],
+    callback_domain: str,
+    api_key: str,
+    is_login: bool,
+    jwt_key: str,
 ) -> str:
     """
     Create the URL and the parameters needed to start the oauth process to install an app or to log
