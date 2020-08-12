@@ -1,0 +1,110 @@
+from typing import List, Callable, Union, Optional, Awaitable
+from dataclasses import dataclass
+from inspect import isawaitable
+from fastapi import APIRouter, Depends, Query, HTTPException
+from starlette.requests import Request
+from starlette.responses import RedirectResponse
+
+from spylib.auth import JWTBaseModel
+
+from ..utils import store_domain
+
+from .redirects import oauth_init_url, app_redirect
+from .tokens import OAuthJWT, OfflineToken, OnlineToken
+from .validations import validate_callback, validate_oauthjwt
+
+
+@dataclass
+class Callback:
+    code: str = Query(...)
+    hmac: str = Query(...)
+    timestamp: int = Query(...)
+    state: str = Query(...)
+    shop: str = Query(...)
+
+
+def init_oauth_router(
+    app_scopes: List[str],
+    user_scopes: List[str],
+    public_domain: str,
+    api_key: str,
+    private_key: str,
+    install_init_url='/shopify/auth',
+    post_install: Callable[
+        [str, OfflineToken], Union[Awaitable[JWTBaseModel], JWTBaseModel]
+    ] = lambda *args, **kwargs: JWTBaseModel(),
+    post_login: Callable[[str, OnlineToken], Optional[Awaitable]] = lambda *args, **kwargs: None,
+) -> APIRouter:
+    router = APIRouter()
+
+    @router.get(install_init_url, include_in_schema=False)
+    async def shopify_auth(shop: str):
+        """ Endpoint initiating the OAuth process on a Shopify store """
+        return RedirectResponse(
+            oauth_init_url(
+                domain=store_domain(shop=shop),
+                is_login=False,
+                requested_scopes=app_scopes,
+                callback_domain=public_domain,
+                api_key=api_key,
+                jwt_key=private_key,
+            )
+        )
+
+    @router.get('/callback', include_in_schema=False)
+    async def shopify_callback(request: Request, args: Callback = Depends(Callback)):
+        """ REST endpoint called by Shopify during the OAuth process for installation and login """
+        try:
+            validate_callback(
+                shop=args.shop,
+                timestamp=args.timestamp,
+                query_string=request.scope['query_string'],
+            )
+            oauthjwt: OAuthJWT = validate_oauthjwt(
+                token=args.state, shop=args.shop, jwt_key=private_key
+            )
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f'Validation failed: {e}')
+
+        # === If installation ===
+        # Setup the login obj and redirect to oauth_redirect
+        if not oauthjwt.is_login:
+            try:
+                # Get the offline token from Shopify
+                offline_token = await OfflineToken.get(domain=args.shop, code=args.code)
+            except Exception as e:
+                raise HTTPException(status_code=400, detail=str(e))
+
+            # Await if the provided function is async
+            if isawaitable(pi_return := post_install(oauthjwt.storename, offline_token)):
+                await pi_return  # type: ignore
+
+            # Initiate the oauth loop for login
+            return RedirectResponse(
+                oauth_init_url(
+                    domain=args.shop,
+                    is_login=True,
+                    requested_scopes=user_scopes,
+                    callback_domain=public_domain,
+                    api_key=api_key,
+                    jwt_key=private_key,
+                )
+            )
+
+        # === If login ===
+        # Get the online token from Shopify
+        online_token = await OfflineToken.get(domain=args.shop, code=args.code)
+
+        # Await if the provided function is async
+        pl_return = post_login(oauthjwt.storename, online_token)
+        if isawaitable(pl_return):
+            jwtoken = await pl_return  # type: ignore
+        else:
+            jwtoken = pl_return
+
+        # Redirect to the app in Shopify admin
+        return app_redirect(
+            store_domain=args.shop, jwtoken=jwtoken, jwt_key=private_key, app_domain=public_domain
+        )
+
+    return router
