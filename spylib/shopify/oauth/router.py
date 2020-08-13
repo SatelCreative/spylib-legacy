@@ -93,7 +93,7 @@ def init_oauth_router(
 
         # === If login ===
         # Get the online token from Shopify
-        online_token = await OfflineToken.get(domain=args.shop, code=args.code)
+        online_token = await OnlineToken.get(domain=args.shop, code=args.code)
 
         # Await if the provided function is async
         pl_return = post_login(oauthjwt.storename, online_token)
