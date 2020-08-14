@@ -13,7 +13,6 @@ def oauth_init_url(
     domain: str,
     requested_scopes: List[str],
     callback_domain: str,
-    api_key: str,
     is_login: bool,
     jwt_key: str,
 ) -> str:
@@ -27,7 +26,6 @@ def oauth_init_url(
     requested_scopes: List of scopes accessible to the app once installed.
         See https://shopify.dev/docs/admin-api/access-scopes
     callback_domain: Public domain Shopify will connect to during the oauth process
-    api_key: Key provided in the Shopify portal for the app
     is_login: Specify if the oauth is to install the app or a user logging in
 
     Returns
@@ -43,7 +41,7 @@ def oauth_init_url(
     access_mode = 'per-user' if is_login else ''
 
     return (
-        f'https://{domain}/admin/oauth/authorize?client_id={api_key}&'
+        f'https://{domain}/admin/oauth/authorize?client_id={conf.api_key}&'
         f'scope={scopes}&redirect_uri={redirect_uri}&state={oauth_token}&'
         f'grant_options[]={access_mode}'
     )

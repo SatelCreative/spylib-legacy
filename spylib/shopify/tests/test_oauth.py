@@ -20,7 +20,6 @@ TEST_DATA = Box(
         user_scopes=['write_orders', 'read_products'],
         public_domain='test.testing.com',
         private_key='TESTPRIVATEKEY',
-        api_key=conf.api_key,
         post_install=AsyncMock(return_value=JWTBaseModel()),
         post_login=AsyncMock(return_value=None),
     )
@@ -164,7 +163,7 @@ def check_oauth_redirect_query(query: str, scope: List[str], query_extra: dict =
     state = parsed_query.pop('state', [''])[0]
 
     expected_query = dict(
-        client_id=[TEST_DATA.api_key],
+        client_id=[conf.api_key],
         redirect_uri=[f'https://{TEST_DATA.public_domain}/callback'],
         scope=[','.join(scope)],
     )

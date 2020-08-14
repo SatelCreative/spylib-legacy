@@ -27,17 +27,20 @@ def init_oauth_router(
     app_scopes: List[str],
     user_scopes: List[str],
     public_domain: str,
-    api_key: str,
     private_key: str,
-    install_init_url='/shopify/auth',
-    post_install: Callable[
-        [str, OfflineToken], Union[Awaitable[JWTBaseModel], JWTBaseModel]
-    ] = lambda *args, **kwargs: JWTBaseModel(),
-    post_login: Callable[[str, OnlineToken], Optional[Awaitable]] = lambda *args, **kwargs: None,
+    post_install: Callable[[str, OfflineToken], Union[Awaitable[JWTBaseModel], JWTBaseModel]],
+    post_login: Callable[[str, OnlineToken], Optional[Awaitable]],
+    install_init_path='/shopify/auth',
+    callback_path='/callback',
 ) -> APIRouter:
     router = APIRouter()
 
-    @router.get(install_init_url, include_in_schema=False)
+    if not install_init_path.startswith('/'):
+        raise ValueError('The install_init_path argument must start with "/"')
+    if not callback_path.startswith('/'):
+        raise ValueError('The callback_path argument must start with "/"')
+
+    @router.get(install_init_path, include_in_schema=False)
     async def shopify_auth(shop: str):
         """ Endpoint initiating the OAuth process on a Shopify store """
         return RedirectResponse(
@@ -46,12 +49,11 @@ def init_oauth_router(
                 is_login=False,
                 requested_scopes=app_scopes,
                 callback_domain=public_domain,
-                api_key=api_key,
                 jwt_key=private_key,
             )
         )
 
-    @router.get('/callback', include_in_schema=False)
+    @router.get(callback_path, include_in_schema=False)
     async def shopify_callback(request: Request, args: Callback = Depends(Callback)):
         """ REST endpoint called by Shopify during the OAuth process for installation and login """
         try:
@@ -86,7 +88,6 @@ def init_oauth_router(
                     is_login=True,
                     requested_scopes=user_scopes,
                     callback_domain=public_domain,
-                    api_key=api_key,
                     jwt_key=private_key,
                 )
             )
