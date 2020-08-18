@@ -2,13 +2,15 @@ version: "3.5"
 
 services:
   spylib:
-    image: satel/python-base:3.1.1
+    build: ./
     ports:
       - "8000:8000"
-    command: "tail -f /dev/null"
     volumes:
       - ./tests:/python/app
+      - ./mkdocs.yml:/python/app/mkdocs.yml
+      - ./docs:/python/app/docs
       - ./spylib:/python/app/spylib  
     environment:
       - DEVMODE=true
+      - PYTHONPATH=/python/app/spylib
     tty: true

@@ -1,0 +1,11 @@
+site_name: SPyLib - The Satel Python Library
+dev_addr: 0.0.0.0:8000
+theme:
+  name: material
+  palette:
+    primary: deep orange
+    accent: teal
+markdown_extensions:
+  - admonition
+  - codehilite
+  - mkautodoc
