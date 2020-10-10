@@ -6,6 +6,12 @@ theme:
     primary: deep orange
     accent: teal
 markdown_extensions:
-  - admonition
-  - codehilite
-  - mkautodoc
+- markdown.extensions.codehilite:
+    guess_lang: false
+- markdown_include.include:
+    base_path: docs
+- admonition
+- codehilite
+- mkautodoc
+nav:
+  - Shopify Oauth: shopify_oauth.md
