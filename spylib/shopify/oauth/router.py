@@ -1,4 +1,4 @@
-from typing import List, Callable, Union, Optional, Awaitable
+from typing import List, Callable, Union, Awaitable, Optional
 from dataclasses import dataclass
 from inspect import isawaitable
 from fastapi import APIRouter, Depends, Query, HTTPException
@@ -28,11 +28,17 @@ def init_oauth_router(
     user_scopes: List[str],
     public_domain: str,
     private_key: str,
-    post_install: Callable[[str, OfflineToken], Union[Awaitable[JWTBaseModel], JWTBaseModel]],
-    post_login: Callable[[str, OnlineToken], Optional[Awaitable]],
+    post_install: Callable[[str, OfflineToken], Optional[Awaitable[None]]],
+    post_login: Callable[[str, OnlineToken], Union[Awaitable[JWTBaseModel], JWTBaseModel, None]],
     install_init_path='/shopify/auth',
     callback_path='/callback',
 ) -> APIRouter:
+    """Initialize the router providing the endpoints handling the Shopify OAuth process
+
+    Args:
+        param1: This is the first param.
+        param2: This is a second param.
+    """
     router = APIRouter()
 
     if not install_init_path.startswith('/'):
