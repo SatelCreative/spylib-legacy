@@ -11,6 +11,3 @@ This library aims at simplifying the creation and maintenance of our webapps, in
 ## Project layout
 
 # API documentation
-
-::: spylib.shopify.oauth.init_oauth_router
-    :docstring:
