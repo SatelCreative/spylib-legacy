@@ -14,12 +14,12 @@ SCHEMA_PATH = '#/components/schemas/'
 
 @dataclass
 class TagAndModels:
-    models: Union[Type[BaseModel], List[Union[BaseModel, Enum]]]
+    models: Union[Type[BaseModel], List[Union[Type[BaseModel], Type[Enum]]]]
     tag: Optional[str] = None
     description: Optional[str] = None
 
 
-def _model_to_doc_str(model: Type[BaseModel], title: bool = False):
+def _model_to_doc_str(model: Union[Type[BaseModel], Type[Enum]], title: bool = False):
     clsname = model.__name__
     schema_title = f'## {clsname}\n'
     schema_description = model.__doc__ + '\n' if model.__doc__ is not None else ''
