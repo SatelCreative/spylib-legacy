@@ -41,10 +41,12 @@ def validate_callback(shop: str, timestamp: int, query_string: Any) -> None:
 def validate_callback_args(args: List[Tuple[str, str]]) -> None:
     # We assume here that the arguments were validated prior to calling
     # this function.
+    logger.info(f'>--1>> {args}')
     hmac_arg = [arg[1] for arg in args if arg[0] == 'hmac'][0]
-    args_nohmac = '&'.join([f'{arg[0]}={arg[1]}' for arg in args if arg[0] != 'hmac'])
+    logger.info(f'>--2>> {hmac_arg}')
+    message = '&'.join([f'{arg[0]}={arg[1]}' for arg in args if arg[0] != 'hmac'])
     # Check HMAC
-    message = args_nohmac
+    logger.info(f'>--3>> {message}')
     validate_hmac(secret=conf.secret_key, sent_hmac=hmac_arg, message=message)
 
 
