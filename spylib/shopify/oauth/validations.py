@@ -36,6 +36,7 @@ def validate_callback(shop: str, timestamp: int, query_string: Any) -> None:
         # Try with the original ordering
         logger.info(f'>3>> {original_args}')
         validate_callback_args(args=original_args)
+        logger.info(f'>4>> {original_args}')
 
 
 def validate_callback_args(args: List[Tuple[str, str]]) -> None:
@@ -48,6 +49,7 @@ def validate_callback_args(args: List[Tuple[str, str]]) -> None:
     # Check HMAC
     logger.info(f'>--3>> {message}')
     validate_hmac(secret=conf.secret_key, sent_hmac=hmac_arg, message=message)
+    logger.info('>--4>> HMAC validated')
 
 
 def validate_oauthjwt(token: str, shop: str, jwt_key: str) -> OAuthJWT:
