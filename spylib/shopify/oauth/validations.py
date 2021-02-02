@@ -3,6 +3,7 @@ from urllib.parse import parse_qsl
 from typing import Any
 from copy import deepcopy
 from operator import itemgetter
+from loguru import logger
 
 from spylib.auth.hmac import validate as validate_hmac
 from spylib.utils import now_epoch
@@ -27,10 +28,13 @@ def validate_callback(shop: str, timestamp: int, query_string: Any) -> None:
     original_args = deepcopy(args)
     try:
         # Let's assume alphabetical sorting to avoid issues with scrambled args when using bonnette
+        logger.info(f'>1>> {args}')
         args.sort(key=itemgetter(0))
+        logger.info(f'>2>> {args}')
         validate_callback_args(args=args)
     except ValueError:
         # Try with the original ordering
+        logger.info(f'>3>> {original_args}')
         validate_callback_args(args=original_args)
 
 
