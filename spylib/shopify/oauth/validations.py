@@ -1,6 +1,8 @@
+from typing import List, Tuple
 from urllib.parse import parse_qsl
 from typing import Any
-from loguru import logger
+from copy import deepcopy
+from operator import itemgetter
 
 from spylib.auth.hmac import validate as validate_hmac
 from spylib.utils import now_epoch
@@ -22,16 +24,24 @@ def validate_callback(shop: str, timestamp: int, query_string: Any) -> None:
     # 3) Check the hmac
     # Extract HMAC
     args = parse_qsl(q_str)
+    original_args = deepcopy(args)
+    try:
+        # Let's assume alphabetical sorting to avoid issues with scrambled args when using bonnette
+        args.sort(key=itemgetter(0))
+        validate_callback_args(args=args)
+    except ValueError:
+        # Try with the original ordering
+        validate_callback_args(args=original_args)
+
+
+def validate_callback_args(args: List[Tuple[str, str]]) -> None:
     # We assume here that the arguments were validated prior to calling
     # this function.
-    logger.info('>>> {args}')
     hmac_arg = [arg[1] for arg in args if arg[0] == 'hmac'][0]
     args_nohmac = '&'.join([f'{arg[0]}={arg[1]}' for arg in args if arg[0] != 'hmac'])
     # Check HMAC
     message = args_nohmac
     validate_hmac(secret=conf.secret_key, sent_hmac=hmac_arg, message=message)
-
-    return
 
 
 def validate_oauthjwt(token: str, shop: str, jwt_key: str) -> OAuthJWT:
