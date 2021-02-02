@@ -1,5 +1,6 @@
 from urllib.parse import parse_qsl
 from typing import Any
+from loguru import logger
 
 from spylib.auth.hmac import validate as validate_hmac
 from spylib.utils import now_epoch
@@ -23,6 +24,7 @@ def validate_callback(shop: str, timestamp: int, query_string: Any) -> None:
     args = parse_qsl(q_str)
     # We assume here that the arguments were validated prior to calling
     # this function.
+    logger.info('>>> {args}')
     hmac_arg = [arg[1] for arg in args if arg[0] == 'hmac'][0]
     args_nohmac = '&'.join([f'{arg[0]}={arg[1]}' for arg in args if arg[0] != 'hmac'])
     # Check HMAC
