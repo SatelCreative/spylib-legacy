@@ -29,6 +29,7 @@ async def _get_token(domain: str, code: str) -> dict:
     if response.status_code != 200:
         message = (
             f'Problem retrieving access token. Status code: {response.status_code} {jsondata}'
+            f'response=> {response.text}'
         )
         logger.error(message)
         raise ValueError(message)
