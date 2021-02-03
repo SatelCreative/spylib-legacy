@@ -1,6 +1,5 @@
 from typing import List, Optional
 from starlette.responses import RedirectResponse
-from loguru import logger
 
 from spylib.utils import get_unique_id
 from spylib.auth import JWTBaseModel
