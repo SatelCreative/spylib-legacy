@@ -38,6 +38,7 @@ class OfflineToken(BaseModel):
 
     @classmethod
     async def get(cls, domain: str, code: str):
+        logger.info('>>>> GET ONLINE TOKEN')
         jsontoken = await _get_token(domain=domain, code=code)
         logger.info(f'>>>> ONLINE TOKEN: {jsontoken}')
         return cls(**jsontoken)
