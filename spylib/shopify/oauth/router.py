@@ -63,30 +63,24 @@ def init_oauth_router(
                 timestamp=args.timestamp,
                 query_string=request.scope['query_string'],
             )
-            logger.info('HERE 1')
             oauthjwt: OAuthJWT = validate_oauthjwt(
                 token=args.state, shop=args.shop, jwt_key=private_key
             )
-            logger.info('HERE 2')
         except Exception as e:
             raise HTTPException(status_code=400, detail=f'Validation failed: {e}')
 
         # === If installation ===
         # Setup the login obj and redirect to oauth_redirect
-        logger.info('HERE 3')
         if not oauthjwt.is_login:
-            logger.info('HERE 4')
             try:
                 # Get the offline token from Shopify
                 offline_token = await OfflineToken.get(domain=args.shop, code=args.code)
             except Exception as e:
                 raise HTTPException(status_code=400, detail=str(e))
-            logger.info('HERE 5')
 
             # Await if the provided function is async
             if isawaitable(pi_return := post_install(oauthjwt.storename, offline_token)):
                 await pi_return  # type: ignore
-            logger.info('HERE 6')
 
             # Initiate the oauth loop for login
             return RedirectResponse(

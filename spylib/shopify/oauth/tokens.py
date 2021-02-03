@@ -1,6 +1,7 @@
 from typing import Optional
 from typing import List
 from pydantic import BaseModel, validator
+from loguru import logger
 
 from spylib.utils import HTTPClient
 from spylib.auth import JWTBaseModel
@@ -38,6 +39,7 @@ class OfflineToken(BaseModel):
     @classmethod
     async def get(cls, domain: str, code: str):
         jsontoken = await _get_token(domain=domain, code=code)
+        logger.info(f'>>>> ONLINE TOKEN: {jsontoken}')
         return cls(**jsontoken)
 
     @validator('scope', pre=True, always=True)
