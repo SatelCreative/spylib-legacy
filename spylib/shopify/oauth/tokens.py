@@ -20,14 +20,16 @@ async def _get_token(domain: str, code: str) -> dict:
 
     httpclient = HTTPClient()
 
-    jsondata = ({'client_id': conf.api_key, 'client_secret': conf.secret_key, 'code': code},)
+    jsondata = {'client_id': conf.api_key, 'client_secret': conf.secret_key, 'code': code}
     response = await httpclient.request(
         method='post',
         url=url,
         json=jsondata,
     )
     if response.status_code != 200:
-        message = f'Problem retrieving access token. Status code: {response.status_code}'
+        message = (
+            f'Problem retrieving access token. Status code: {response.status_code} {jsondata}'
+        )
         logger.error(message)
         raise ValueError(message)
 
