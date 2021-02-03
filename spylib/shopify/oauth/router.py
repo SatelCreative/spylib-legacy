@@ -4,6 +4,7 @@ from inspect import isawaitable
 from fastapi import APIRouter, Depends, Query, HTTPException
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
+from loguru import logger
 
 from spylib.auth import JWTBaseModel
 
@@ -29,7 +30,7 @@ def init_oauth_router(
     public_domain: str,
     private_key: str,
     post_install: Callable[[str, OfflineToken], Union[Awaitable[JWTBaseModel], JWTBaseModel]],
-    post_login: Callable[[str, OnlineToken], Optional[Awaitable]],
+    post_login: Optional[Callable[[str, OnlineToken], Optional[Awaitable]]] = None,
     install_init_path='/shopify/auth',
     callback_path='/callback',
 ) -> APIRouter:
@@ -75,12 +76,20 @@ def init_oauth_router(
                 # Get the offline token from Shopify
                 offline_token = await OfflineToken.get(domain=args.shop, code=args.code)
             except Exception as e:
+                logger.exception(f'Could not retrieve offline token for shop {args.shop}')
                 raise HTTPException(status_code=400, detail=str(e))
 
             # Await if the provided function is async
             if isawaitable(pi_return := post_install(oauthjwt.storename, offline_token)):
                 await pi_return  # type: ignore
 
+            if post_login is None:
+                return app_redirect(
+                    store_domain=args.shop,
+                    jwtoken=None,
+                    jwt_key=private_key,
+                    app_domain=public_domain,
+                )
             # Initiate the oauth loop for login
             return RedirectResponse(
                 oauth_init_url(

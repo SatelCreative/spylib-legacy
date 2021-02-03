@@ -1,6 +1,7 @@
 from typing import Optional
 from typing import List
 from pydantic import BaseModel, validator
+from loguru import logger
 
 from spylib.utils import HTTPClient
 from spylib.auth import JWTBaseModel
@@ -18,13 +19,21 @@ async def _get_token(domain: str, code: str) -> dict:
     url = f'https://{domain}/admin/oauth/access_token'
 
     httpclient = HTTPClient()
+
+    jsondata = {'client_id': conf.api_key, 'client_secret': conf.secret_key, 'code': code}
     response = await httpclient.request(
         method='post',
         url=url,
-        json={'client_id': conf.api_key, 'client_secret': conf.secret_key, 'code': code},
+        json=jsondata,
+        timeout=20.0,
     )
     if response.status_code != 200:
-        raise RuntimeError('Couldn\'t get access token')
+        message = (
+            f'Problem retrieving access token. Status code: {response.status_code} {jsondata}'
+            f'response=> {response.text}'
+        )
+        logger.error(message)
+        raise ValueError(message)
 
     jresp = response.json()
 
@@ -37,6 +46,7 @@ class OfflineToken(BaseModel):
 
     @classmethod
     async def get(cls, domain: str, code: str):
+        logger.debug(f'Retrieve {cls.__name__} for shop {domain}')
         jsontoken = await _get_token(domain=domain, code=code)
         return cls(**jsontoken)
 
