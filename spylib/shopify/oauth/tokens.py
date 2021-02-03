@@ -17,23 +17,21 @@ class OAuthJWT(JWTBaseModel):
 
 async def _get_token(domain: str, code: str) -> dict:
     url = f'https://{domain}/admin/oauth/access_token'
-    logger.info('>>======>> 1')
 
     httpclient = HTTPClient()
-    logger.info('>>======>> 2')
+
+    jsondata = ({'client_id': conf.api_key, 'client_secret': conf.secret_key, 'code': code},)
     response = await httpclient.request(
         method='post',
         url=url,
-        json={'client_id': conf.api_key, 'client_secret': conf.secret_key, 'code': code},
+        json=jsondata,
     )
-    logger.info(f'>>======>> 3 {response}')
-    logger.info(f'>>======>> 3 {response.status_code}')
     if response.status_code != 200:
-        raise RuntimeError('Couldn\'t get access token')
-    logger.info('>>======>> 4')
+        message = f'Problem retrieving access token. Status code: {response.status_code}'
+        logger.error(message)
+        raise ValueError(message)
 
     jresp = response.json()
-    logger.info('>>======>> 5')
 
     return jresp
 
@@ -44,9 +42,8 @@ class OfflineToken(BaseModel):
 
     @classmethod
     async def get(cls, domain: str, code: str):
-        logger.info('>>>> GET ONLINE TOKEN')
+        logger.debug(f'Retrieve {cls.__name__} for shop {domain}')
         jsontoken = await _get_token(domain=domain, code=code)
-        logger.info(f'>>>> ONLINE TOKEN: {jsontoken}')
         return cls(**jsontoken)
 
     @validator('scope', pre=True, always=True)
