@@ -26,7 +26,8 @@ async def _get_token(domain: str, code: str) -> dict:
         url=url,
         json={'client_id': conf.api_key, 'client_secret': conf.secret_key, 'code': code},
     )
-    logger.info('>>======>> 3')
+    logger.info(f'>>======>> 3 {response}')
+    logger.info(f'>>======>> 3 {response.status_code}')
     if response.status_code != 200:
         raise RuntimeError('Couldn\'t get access token')
     logger.info('>>======>> 4')
