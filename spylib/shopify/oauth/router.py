@@ -30,7 +30,7 @@ def init_oauth_router(
     public_domain: str,
     private_key: str,
     post_install: Callable[[str, OfflineToken], Union[Awaitable[JWTBaseModel], JWTBaseModel]],
-    post_login: Callable[[str, OnlineToken], Optional[Awaitable]],
+    post_login: Optional[Callable[[str, OnlineToken], Optional[Awaitable]]] = None,
     install_init_path='/shopify/auth',
     callback_path='/callback',
 ) -> APIRouter:
@@ -57,9 +57,7 @@ def init_oauth_router(
     @router.get(callback_path, include_in_schema=False)
     async def shopify_callback(request: Request, args: Callback = Depends(Callback)):
         """ REST endpoint called by Shopify during the OAuth process for installation and login """
-        logger.info('>>>>> HERE -3')
         try:
-            logger.info('>>>>> HERE -3')
             validate_callback(
                 shop=args.shop,
                 timestamp=args.timestamp,
@@ -76,7 +74,6 @@ def init_oauth_router(
         if not oauthjwt.is_login:
             try:
                 # Get the offline token from Shopify
-                logger.info(f'>>>> OFFLINE TOKEN CODE: {args.code}')
                 offline_token = await OfflineToken.get(domain=args.shop, code=args.code)
             except Exception as e:
                 logger.exception(f'Could not retrieve offline token for shop {args.shop}')
@@ -86,6 +83,13 @@ def init_oauth_router(
             if isawaitable(pi_return := post_install(oauthjwt.storename, offline_token)):
                 await pi_return  # type: ignore
 
+            if post_login is None:
+                return app_redirect(
+                    store_domain=args.shop,
+                    jwtoken=None,
+                    jwt_key=private_key,
+                    app_domain=public_domain,
+                )
             # Initiate the oauth loop for login
             return RedirectResponse(
                 oauth_init_url(
@@ -99,22 +103,14 @@ def init_oauth_router(
 
         # === If login ===
         # Get the online token from Shopify
-        logger.info(f'>>>> ONLINE TOKEN CODE: {args.code}')
         online_token = await OnlineToken.get(domain=args.shop, code=args.code)
 
         # Await if the provided function is async
-        logger.info('>>>>> HERE 1')
         pl_return = post_login(oauthjwt.storename, online_token)
-        logger.info('>>>>> HERE 2')
         if isawaitable(pl_return):
-            logger.info('>>>>> HERE 3')
             jwtoken = await pl_return  # type: ignore
-            logger.info('>>>>> HERE 4')
         else:
-            logger.info('>>>>> HERE 5')
             jwtoken = pl_return
-            logger.info('>>>>> HERE 6')
-        logger.info('>>>>> HERE 7')
 
         # Redirect to the app in Shopify admin
         return app_redirect(

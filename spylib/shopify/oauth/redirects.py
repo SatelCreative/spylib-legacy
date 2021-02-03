@@ -51,23 +51,17 @@ def oauth_init_url(
 def app_redirect(
     store_domain: str, app_domain: str, jwtoken: Optional[JWTBaseModel], jwt_key: str
 ) -> RedirectResponse:
-    logger.info('>>>> HERE 1')
     app_handle = conf.handle
-    logger.info('>>>> HERE 2')
 
     if jwtoken is None:
         return RedirectResponse(f'https://{store_domain}/admin/apps/{app_handle}')
-    logger.info('>>>> HERE 3')
 
     jwtarg, signature = jwtoken.encode_hp_s(key=jwt_key)
-    logger.info('>>>> HERE 4')
     redir = RedirectResponse(f'https://{store_domain}/admin/apps/{app_handle}?jwt={jwtarg}')
-    logger.info('>>>> HERE 5')
 
     # TODO set 'expires'
     redir.set_cookie(
         key=jwtoken.cookie_key, value=signature, domain=app_domain, httponly=True, secure=True,
     )
-    logger.info('>>>> HERE 6')
 
     return redir
