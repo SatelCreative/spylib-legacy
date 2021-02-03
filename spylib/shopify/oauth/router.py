@@ -74,6 +74,7 @@ def init_oauth_router(
         if not oauthjwt.is_login:
             try:
                 # Get the offline token from Shopify
+                logger.info(f'>>>> OFFLINE TOKEN CODE: {args.code}')
                 offline_token = await OfflineToken.get(domain=args.shop, code=args.code)
             except Exception as e:
                 logger.exception(f'Could not retrieve offline token for shop {args.shop}')
@@ -96,6 +97,7 @@ def init_oauth_router(
 
         # === If login ===
         # Get the online token from Shopify
+        logger.info(f'>>>> ONLINE TOKEN CODE: {args.code}')
         online_token = await OnlineToken.get(domain=args.shop, code=args.code)
 
         # Await if the provided function is async
