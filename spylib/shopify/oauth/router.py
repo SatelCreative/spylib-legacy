@@ -103,13 +103,16 @@ def init_oauth_router(
         # Get the online token from Shopify
         logger.info('HERE 7')
         online_token = await OnlineToken.get(domain=args.shop, code=args.code)
+        logger.info('HERE 8')
 
         # Await if the provided function is async
         pl_return = post_login(oauthjwt.storename, online_token)
+        logger.info('HERE 9')
         if isawaitable(pl_return):
             jwtoken = await pl_return  # type: ignore
         else:
             jwtoken = pl_return
+        logger.info('HERE 10')
 
         # Redirect to the app in Shopify admin
         return app_redirect(
