@@ -25,6 +25,7 @@ async def _get_token(domain: str, code: str) -> dict:
         method='post',
         url=url,
         json=jsondata,
+        timeout=20.0,
     )
     if response.status_code != 200:
         message = (
@@ -33,7 +34,6 @@ async def _get_token(domain: str, code: str) -> dict:
         )
         logger.error(message)
         raise ValueError(message)
-    logger.error('TOKEN RETRIEVED SUCCESSFULLY')
 
     jresp = response.json()
 
