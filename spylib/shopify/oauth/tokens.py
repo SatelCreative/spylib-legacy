@@ -33,6 +33,7 @@ async def _get_token(domain: str, code: str) -> dict:
         )
         logger.error(message)
         raise ValueError(message)
+    logger.error('TOKEN RETRIEVED SUCCESSFULLY')
 
     jresp = response.json()
 

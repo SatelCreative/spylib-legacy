@@ -57,7 +57,9 @@ def init_oauth_router(
     @router.get(callback_path, include_in_schema=False)
     async def shopify_callback(request: Request, args: Callback = Depends(Callback)):
         """ REST endpoint called by Shopify during the OAuth process for installation and login """
+        logger.info('>>>>> HERE -3')
         try:
+            logger.info('>>>>> HERE -3')
             validate_callback(
                 shop=args.shop,
                 timestamp=args.timestamp,
