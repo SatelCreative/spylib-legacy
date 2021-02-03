@@ -17,17 +17,22 @@ class OAuthJWT(JWTBaseModel):
 
 async def _get_token(domain: str, code: str) -> dict:
     url = f'https://{domain}/admin/oauth/access_token'
+    logger.info('>>======>> 1')
 
     httpclient = HTTPClient()
+    logger.info('>>======>> 2')
     response = await httpclient.request(
         method='post',
         url=url,
         json={'client_id': conf.api_key, 'client_secret': conf.secret_key, 'code': code},
     )
+    logger.info('>>======>> 3')
     if response.status_code != 200:
         raise RuntimeError('Couldn\'t get access token')
+    logger.info('>>======>> 4')
 
     jresp = response.json()
+    logger.info('>>======>> 5')
 
     return jresp
 
