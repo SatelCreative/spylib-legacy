@@ -11,7 +11,7 @@ from tenacity.retry import retry_if_exception
 from .exceptions import ShopifyError, ShopifyCallInvalidError, not_our_fault
 
 
-API_VERSION: str = '2020-04'
+API_VERSION: str = '2021-04'
 # Default assumes Shopify Plus rate
 RATE = 4
 MAX_TOKENS = 80
@@ -32,7 +32,7 @@ class Store:
 
     @classmethod
     def load(cls, store_id: str, name: str, access_token: Optional[str]):
-        """ Load the store from memory to reuse the tokens
+        """Load the store from memory to reuse the tokens
 
         WARNING: the name will not be changed here after the first initialization
         """
@@ -76,7 +76,7 @@ class Store:
             self.updated_at = now
 
     async def __handle_error(self, debug: str, endpoint: str, response):
-        """ Handle any error that occured when calling Shopify
+        """Handle any error that occured when calling Shopify
 
         If the response has a valid json then return it too.
         """
